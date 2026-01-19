@@ -23,47 +23,138 @@ Claude Code / Slackbot → MCP Server (stdio) → Arena PLM API
 ```
 arena-mcp-server/
 ├── src/
-│   ├── server.py          # MCP server + tool definitions
-│   ├── arena_client.py    # Arena API wrapper (auth, search)
-│   └── config.py          # Credentials/env handling
+│   └── arena_mcp_server/
+│       ├── __init__.py
+│       ├── server.py          # MCP server + tool definitions
+│       └── arena_client.py    # Arena API wrapper (auth, search)
 ├── Dockerfile
+├── docker-compose.yml
 ├── pyproject.toml
 └── CLAUDE.md
 ```
 
 ## Arena API Details
 
+- **Base URL**: `https://api.arenasolutions.com/v1`
 - **Auth**: POST `/login` with email/password → returns `arena_session_id`
-- **Search**: GET `/items` with query params (name, description, category.guid, etc.)
-- **Wildcards**: Trailing `*` required for partial matches (e.g., `name=*bezel*`)
+- **Session Header**: `arena_session_id`
+- **Wildcards**: `*` required for partial matches (automatically added by client)
 - **Pagination**: `limit` (max 400), `offset`
-- **Response views**: `minimum`, `compact`, `full`
-
-### Key Searchable Fields
-- `name`, `description`, `number`
-- `category.guid`, `owner.fullName`, `creator.fullName`
-- `lifecyclePhase.guid`, `revisionNumber`
-- Custom attributes via GUID: `?ATTR_GUID=*value*`
 
 ## MCP Tools
 
 ### `search_items`
-Search Arena parts using native API filters.
+Search Arena parts by name, number, or description. Wildcards are added automatically for partial matching.
 
 **Parameters:**
-- `name` (string, optional): Part name wildcard search
-- `description` (string, optional): Description wildcard search
-- `number` (string, optional): Part number search
-- `category_guid` (string, optional): Category GUID filter
+- `name` (string, optional): Part name filter
+- `description` (string, optional): Description filter
+- `number` (string, optional): Part number filter
+- `category_guid` (string, optional): Category GUID filter (use `get_categories` to find GUIDs)
 - `limit` (int, optional): Max results (default 20, max 400)
 
-**Returns:** List of matching parts with number, name, revision, guid, url
+**Returns:** List of matching items with number, name, revision, lifecyclePhase, GUID, URL
 
-### `get_item` (optional)
-Fetch full details for a specific part.
+---
+
+### `get_item`
+Get full details for a specific item by GUID.
+
+**Parameters:**
+- `guid` (string, required): Item GUID (obtain from `search_items`)
+
+**Returns:** Complete item details including custom attributes
+
+---
+
+### `get_item_bom`
+Get bill of materials (BOM) for an assembly item.
+
+**Parameters:**
+- `guid` (string, required): Item GUID of the assembly
+
+**Returns:** List of child components with quantities, line numbers, and reference designators
+
+---
+
+### `get_item_where_used`
+Find all assemblies where a given item is used as a component. Useful for impact analysis.
+
+**Parameters:**
+- `guid` (string, required): Item GUID to find usage of
+
+**Returns:** List of parent assemblies with line numbers and quantities
+
+---
+
+### `get_item_revisions`
+Get all revisions of an item including working, effective, and superseded revisions.
 
 **Parameters:**
 - `guid` (string, required): Item GUID
+
+**Returns:** List of revisions with status (Working/Effective/Superseded), lifecycle phase, and change order info
+
+---
+
+### `get_item_files`
+Get all files associated with an item (drawings, datasheets, etc.).
+
+**Parameters:**
+- `guid` (string, required): Item GUID
+
+**Returns:** List of file associations with name, format, edition, and primary flag
+
+---
+
+### `get_item_sourcing`
+Get supplier/sourcing information for an item including approved manufacturers and vendors.
+
+**Parameters:**
+- `guid` (string, required): Item GUID
+- `limit` (int, optional): Max results (default 20, max 400)
+
+**Returns:** List of source relationships with approval status and production/prototype flags
+
+---
+
+### `get_categories`
+Get available item categories. Use category GUIDs to filter `search_items` results.
+
+**Parameters:**
+- `path` (string, optional): Filter by category path prefix (e.g., `item\Assembly`)
+
+**Returns:** List of categories with path, GUID, and assignable flag
+
+---
+
+## Recommended Workflows
+
+### Finding a part by description
+1. `search_items(description="...")` → get matching items with GUIDs
+2. `get_item(guid)` → get full details for the best match
+3. `get_item_where_used(guid)` → verify it's used in expected assemblies
+
+### Finding components in an assembly
+1. `search_items(name="assembly name")` → find the assembly
+2. `get_item_bom(guid)` → list all components
+3. `get_item(component_guid)` → get details on specific components
+
+### Impact analysis (what uses this part?)
+1. `search_items(number="part-number")` → find the part
+2. `get_item_where_used(guid)` → find all parent assemblies
+3. Optionally: `get_item_where_used(parent_guid)` → trace up the hierarchy
+
+### Finding parts by category
+1. `get_categories(path="item\\...")` → find category GUIDs
+2. `search_items(category_guid="...", description="...")` → narrow search to category
+
+### Checking part history
+1. `search_items(number="...")` → find the part
+2. `get_item_revisions(guid)` → see all revisions and change orders
+3. `get_item_files(guid)` → find associated documentation
+
+---
 
 ## Running Locally
 
@@ -101,19 +192,24 @@ Add to `~/.claude.json`:
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ARENA_EMAIL` | Arena login email |
-| `ARENA_PASSWORD` | Arena login password |
-| `ARENA_WORKSPACE_ID` | Arena workspace ID |
-| `ARENA_API_BASE` | API base URL (default: `https://api.arenasolutions.com/v1`) |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ARENA_EMAIL` | Yes | Arena login email |
+| `ARENA_PASSWORD` | Yes | Arena login password |
+| `ARENA_WORKSPACE_ID` | No | Arena workspace ID (uses default workspace if not set) |
+
+> Note: API base URL is currently hardcoded to `https://api.arenasolutions.com/v1` in `arena_client.py`
 
 ## Development Notes
 
-- Server must use **stdio** transport for Docker MCP compatibility
-- Arena sessions expire — implement token refresh or re-login on 401
-- Wildcard searches: always wrap user input with `*` (e.g., `*bezel*`)
-- URL-encode special characters in search params (`%`, `+`)
+- Server uses **stdio** transport for MCP communication
+- Authentication is lazy — client authenticates on first tool call
+- Global client instance is reused across tool calls
+- Wildcards (`*value*`) are automatically wrapped around search terms
+
+### Known Limitations
+- Session expiration handling not implemented — currently errors on expired session
+- No retry logic for rate limiting
 
 ## Testing
 
