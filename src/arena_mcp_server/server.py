@@ -1,7 +1,7 @@
 """MCP server for Arena PLM API."""
 
 import os
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 from .arena_client import ArenaClient
 
