@@ -9,7 +9,7 @@ services:
     expose:
       - "8080"
     networks:
-      - traefik
+      - traefik-public
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.arena-mcp.rule=Host(`arena-mcp.carbon.jonathansalzer.com`)"
