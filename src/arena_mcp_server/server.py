@@ -1,6 +1,8 @@
 """MCP server for Arena PLM API."""
 
+import json
 import os
+import secrets
 from fastmcp import FastMCP
 
 from .arena_client import ArenaClient
@@ -9,8 +11,59 @@ from .arena_client import ArenaClient
 # Configure host/port from environment
 HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 PORT = int(os.environ.get("MCP_PORT", "8080"))
+API_KEY = os.environ.get("MCP_API_KEY")
+
+
+AUTH_DISABLED = os.environ.get("MCP_AUTH_DISABLED", "").lower() == "true"
+
+
+def auth_middleware(app):
+    """Simple ASGI middleware for API key authentication."""
+
+    async def middleware(scope, receive, send):
+        # Only check HTTP requests
+        if scope["type"] != "http":
+            return await app(scope, receive, send)
+
+        # Auth explicitly disabled (local dev only)
+        if AUTH_DISABLED:
+            return await app(scope, receive, send)
+
+        # Fail closed: reject if no API key is configured
+        if not API_KEY:
+            response = json.dumps({"error": "Server misconfigured: MCP_API_KEY not set"}).encode()
+            await send({"type": "http.response.start", "status": 500, "headers": [(b"content-type", b"application/json")]})
+            await send({"type": "http.response.body", "body": response})
+            return
+
+        # Extract headers
+        headers = dict(scope.get("headers", []))
+        auth = headers.get(b"authorization", b"").decode()
+        api_key = headers.get(b"x-api-key", b"").decode()
+
+        # Get provided key
+        provided_key = None
+        if auth.startswith("Bearer "):
+            provided_key = auth[7:]
+        elif api_key:
+            provided_key = api_key
+
+        # Validate
+        if not provided_key or not secrets.compare_digest(provided_key, API_KEY):
+            response = json.dumps({"error": "Invalid or missing API key"}).encode()
+            await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
+            await send({"type": "http.response.body", "body": response})
+            return
+
+        return await app(scope, receive, send)
+
+    return middleware
+
 
 mcp = FastMCP("arena-mcp-server", host=HOST, port=PORT)
+
+# Wrap app with auth middleware
+mcp._app = auth_middleware(mcp._app)
 
 client: ArenaClient | None = None
 
@@ -345,7 +398,14 @@ def get_categories(path: str | None = None) -> str:
 
 def main() -> None:
     """Run the MCP server."""
+    if AUTH_DISABLED:
+        auth_status = "DISABLED (MCP_AUTH_DISABLED=true)"
+    elif API_KEY:
+        auth_status = "enabled"
+    else:
+        auth_status = "MISCONFIGURED - set MCP_API_KEY or MCP_AUTH_DISABLED=true"
     print(f"Starting Arena MCP server on http://{HOST}:{PORT}")
+    print(f"Authentication: {auth_status}")
     mcp.run(transport="sse")
 
 
