@@ -12,5 +12,5 @@ dependencies = [
 arena-mcp-server = "arena_mcp_server.server:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
