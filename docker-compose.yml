@@ -3,14 +3,21 @@ services:
     build: .
     env_file:
       - .env
-    stdin_open: true
+    environment:
+      - MCP_TRANSPORT=http
+      - MCP_PORT=8080
+    expose:
+      - "8080"
+    networks:
+      - traefik
     labels:
-      - "mcp.enabled=true"
-      - "mcp.transport=stdio"
-    develop:
-      watch:
-        - action: sync+restart
-          path: ./src
-          target: /app/src
-        - action: rebuild
-          path: ./pyproject.toml
+      - "traefik.enable=true"
+      - "traefik.http.routers.arena-mcp.rule=Host(`arena-mcp.carbon.jonathansalzer.com`)"
+      - "traefik.http.routers.arena-mcp.entrypoints=websecure"
+      - "traefik.http.routers.arena-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.arena-mcp.loadbalancer.server.port=8080"
+    restart: unless-stopped
+
+networks:
+  traefik:
+    external: true

@@ -441,11 +441,22 @@ def main() -> None:
     """Run the MCP server."""
     import asyncio
 
-    async def run():
-        async with stdio_server() as (read_stream, write_stream):
-            await server.run(read_stream, write_stream, server.create_initialization_options())
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
 
-    asyncio.run(run())
+    if transport == "http":
+        from mcp.server.streamable_http import StreamableHTTPServer
+
+        host = os.environ.get("MCP_HOST", "0.0.0.0")
+        port = int(os.environ.get("MCP_PORT", "8080"))
+
+        http_server = StreamableHTTPServer(server)
+        http_server.run(host=host, port=port)
+    else:
+        async def run():
+            async with stdio_server() as (read_stream, write_stream):
+                await server.run(read_stream, write_stream, server.create_initialization_options())
+
+        asyncio.run(run())
 
 
 if __name__ == "__main__":

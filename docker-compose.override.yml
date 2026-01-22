@@ -1,0 +1,17 @@
+# Local development - auto-merges with docker-compose.yml
+# Don't copy this file to the VPS
+services:
+  arena-mcp-server:
+    ports:
+      - "8080:8080"
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./pyproject.toml
+
+networks:
+  traefik:
+    external: false  # Override to create local network instead of requiring external
