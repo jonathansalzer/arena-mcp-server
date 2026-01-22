@@ -19,5 +19,5 @@ services:
     restart: unless-stopped
 
 networks:
-  traefik:
+  traefik-public:
     external: true
