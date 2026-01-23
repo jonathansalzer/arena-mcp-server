@@ -2,10 +2,41 @@
 
 import os
 import secrets
+import warnings
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.debug import DebugTokenVerifier
+from fastmcp.server.auth import TokenVerifier
+from fastmcp.server.auth.auth import AccessToken
 
 from .arena_client import ArenaClient
+
+
+class APIKeyVerifier(TokenVerifier):
+    """Production-ready API key verifier using constant-time comparison."""
+
+    def __init__(self, api_key: str | None, required_scopes: list[str] | None = None):
+        super().__init__(required_scopes=required_scopes)
+        self._api_key = api_key
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        """Verify the API key using constant-time comparison."""
+        # Reject empty tokens
+        if not token or not token.strip():
+            return None
+
+        # If no API key configured, deny all access
+        if not self._api_key:
+            return None
+
+        # Constant-time comparison to prevent timing attacks
+        if not secrets.compare_digest(token, self._api_key):
+            return None
+
+        return AccessToken(
+            token=token,
+            client_id="arena-mcp-client",
+            scopes=["arena:access"],
+            expires_at=None,
+        )
 
 
 # Configure host/port from environment
@@ -13,21 +44,15 @@ HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 PORT = int(os.environ.get("MCP_PORT", "8080"))
 API_KEY = os.environ.get("MCP_API_KEY")
 
+if API_KEY and len(API_KEY) < 32:
+    warnings.warn(
+        "MCP_API_KEY should be at least 32 characters for security",
+        stacklevel=1,
+    )
+
 # Configure API key authentication
 # When no API key is set, deny all access by default
-if API_KEY:
-    auth = DebugTokenVerifier(
-        validate=lambda token: secrets.compare_digest(token, API_KEY),
-        client_id="arena-mcp-client",
-        scopes=["arena:access"],
-    )
-else:
-    # No API key configured - reject all requests
-    auth = DebugTokenVerifier(
-        validate=lambda token: False,
-        client_id="arena-mcp-client",
-        scopes=["arena:access"],
-    )
+auth = APIKeyVerifier(api_key=API_KEY, required_scopes=["arena:access"])
 
 mcp = FastMCP("arena-mcp-server", auth=auth)
 
