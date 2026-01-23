@@ -2,31 +2,29 @@
 
 MCP server wrapping Arena PLM's REST API.
 
-## Structure
-
-```
-src/arena_mcp_server/
-├── server.py        # MCP server, tools, auth (APIKeyVerifier)
-└── arena_client.py  # Arena API client (httpx, session auth)
-```
-
-## Run
+## Commands
 
 ```bash
-docker compose up
+docker compose up          # Run server
+docker compose up --build  # Rebuild and run
 ```
 
-## Config
+## Structure
 
-Environment variables in `.env`:
-- `ARENA_EMAIL`, `ARENA_PASSWORD` - Arena credentials (required)
-- `ARENA_WORKSPACE_ID` - Workspace ID (optional)
-- `MCP_API_KEY` - API key for MCP auth (required, min 32 chars)
-- `MCP_HOST`, `MCP_PORT` - Server binding (default: `0.0.0.0:8080`)
+- `server.py` - MCP tools and auth (`APIKeyVerifier` subclasses `TokenVerifier`)
+- `arena_client.py` - Arena REST client (httpx, session-based auth)
 
-## Arena API Notes
+## Environment
 
-- Base URL: `https://api.arenasolutions.com/v1`
-- Auth: POST `/login` returns `arena_session_id` header
-- Wildcards (`*`) required for partial matches (client adds automatically)
-- Pagination: `limit` (max 400), `offset`
+Required in `.env`:
+- `ARENA_EMAIL`, `ARENA_PASSWORD`
+- `MCP_API_KEY` (min 32 chars, server denies all access if unset)
+
+Optional: `ARENA_WORKSPACE_ID`, `MCP_HOST`, `MCP_PORT`
+
+## Gotchas
+
+- Arena API requires `*wildcards*` for partial matches - `arena_client.py` adds them automatically
+- No session refresh on expiry - will error, needs re-auth
+- No rate limit retry logic
+- Auth is lazy (first tool call), not at startup
