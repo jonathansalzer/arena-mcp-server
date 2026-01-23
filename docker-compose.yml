@@ -5,10 +5,11 @@ services:
       - .env
     environment:
       - MCP_PORT=8080
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     networks:
-      - traefik-public
+      traefik-public:
+        optional: true
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
@@ -21,3 +22,4 @@ services:
 networks:
   traefik-public:
     external: true
+    optional: true
