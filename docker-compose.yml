@@ -13,7 +13,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      - "traefik.http.routers.arena-mcp.rule=Host(`arena-mcp.carbon.jonathansalzer.com`)"
+      - "traefik.http.routers.arena-mcp.rule=Host(`localhost:8080`)"
       - "traefik.http.routers.arena-mcp.entrypoints=https"
       - "traefik.http.routers.arena-mcp.tls.certresolver=le"
       - "traefik.http.services.arena-mcp.loadbalancer.server.port=8080"

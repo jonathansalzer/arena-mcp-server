@@ -11,7 +11,7 @@ docker compose up --build  # Rebuild and run
 
 ## Structure
 
-- `server.py` - MCP tools and Scalekit OAuth 2.1 authentication
+- `server.py` - MCP tools and Google OAuth 2.0 authentication
 - `arena_client.py` - Arena REST client (httpx, session-based auth)
 
 ## Environment
@@ -19,10 +19,10 @@ docker compose up --build  # Rebuild and run
 Required in `.env`:
 - `ARENA_EMAIL`, `ARENA_PASSWORD` - Arena PLM credentials
 
-Scalekit OAuth 2.1 (required for production):
-- `SCALEKIT_ENVIRONMENT_URL` - Scalekit environment URL (e.g., `https://your-env.scalekit.com`)
-- `SCALEKIT_RESOURCE_ID` - Resource ID from Scalekit dashboard (e.g., `res_...`)
-- `MCP_URL` - Public URL where this MCP server is accessible (for OAuth callbacks)
+Google OAuth 2.0 (required for production):
+- `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID` - Google OAuth client ID (e.g., `123456789.apps.googleusercontent.com`)
+- `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET` - Google OAuth client secret (e.g., `GOCSPX-abc123...`)
+- `FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL` - Public URL where this MCP server is accessible (for OAuth callbacks)
 
 Optional:
 - `ARENA_WORKSPACE_ID` (uses default workspace if not set)
@@ -33,7 +33,14 @@ Optional:
 
 ## Authentication
 
-The server uses **Scalekit OAuth 2.1** for MCP client authentication (via `fastmcp.server.auth.providers.scalekit.ScalekitProvider`).
+The server uses **Google OAuth 2.0** for MCP client authentication (via `fastmcp.server.auth.providers.google.GoogleProvider`).
+
+**Google Cloud Console Setup:**
+1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
+2. Enable Google+ API (for user info)
+3. Create OAuth 2.0 credentials (Web application type)
+4. Add authorized redirect URI: `{FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL}/auth/callback`
+5. Optional: Restrict to your Google Workspace domain in OAuth consent screen settings
 
 **Local development:**
 - Set `DISABLE_AUTH=true` to bypass authentication entirely

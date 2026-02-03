@@ -3,10 +3,10 @@
 import os
 
 from dotenv import load_dotenv
+import warnings
+
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.scalekit import ScalekitProvider
-from fastmcp.server.auth import TokenVerifier
-from fastmcp.server.auth.auth import AccessToken
+from fastmcp.server.auth.providers.google import GoogleProvider
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -14,45 +14,15 @@ from .arena_client import ArenaClient
 
 load_dotenv()
 
-class APIKeyVerifier(TokenVerifier):
-    """Production-ready API key verifier using constant-time comparison."""
-
-    def __init__(self, api_key: str | None):
-        super().__init__()
-        self._api_key = api_key
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        """Verify the API key using constant-time comparison."""
-        if not token or not token.strip() or not self._api_key:
-            return None
-
-        # Constant-time comparison to prevent timing attacks
-        if not secrets.compare_digest(token, self._api_key):
-            return None
-
-        return AccessToken(
-            token=token,
-            client_id="arena-mcp-client",
-            expires_at=None,
-        )
-
 
 # Configure host/port from environment
 HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 PORT = int(os.environ.get("MCP_PORT", "8080"))
 TRANSPORT = os.environ.get("MCP_TRANSPORT", "http")  # http or sse
 DISABLE_AUTH = os.environ.get("DISABLE_AUTH", "").lower() in ("true", "1", "yes")
-API_KEY = os.environ.get("MCP_API_KEY")
 
-if API_KEY and len(API_KEY) < 32:
-    warnings.warn(
-        "MCP_API_KEY should be at least 32 characters for security",
-        stacklevel=1,
-    )
-
-# Configure API key authentication
+# Configure authentication
 # When DISABLE_AUTH is true, skip auth entirely
-# When no API key is set, deny all access by default
 if DISABLE_AUTH:
     warnings.warn(
         "Authentication is DISABLED - this should only be used for local development",
@@ -60,14 +30,12 @@ if DISABLE_AUTH:
     )
     auth = None
 else:
-    auth = APIKeyVerifier(api_key=API_KEY)
-
-# Configure Scalekit OAuth 2.1 authentication
-auth = ScalekitProvider(
-    environment_url=os.environ.get("SCALEKIT_ENVIRONMENT_URL", ""),
-    resource_id=os.environ.get("SCALEKIT_RESOURCE_ID", ""),
-    base_url=os.environ.get("MCP_URL", ""),
-)
+    # Configure Google OAuth 2.0 authentication
+    auth = GoogleProvider(
+        client_id=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID", ""),
+        client_secret=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET", ""),
+        base_url=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL", ""),
+    )
 
 mcp = FastMCP("arena-mcp-server", auth=auth)
 
