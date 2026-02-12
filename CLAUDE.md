@@ -12,6 +12,7 @@ docker compose up --build  # Rebuild and run
 ## Structure
 
 - `server.py` - MCP tools and Google OAuth 2.0 authentication
+- `auth.py` - Custom authentication providers with domain restrictions
 - `arena_client.py` - Arena REST client (httpx, session-based auth)
 
 ## Environment
@@ -33,14 +34,20 @@ Optional:
 
 ## Authentication
 
-The server uses **Google OAuth 2.0** for MCP client authentication (via `fastmcp.server.auth.providers.google.GoogleProvider`).
+The server uses **Google OAuth 2.0** for MCP client authentication, restricted to `@carbonrobotics.com` email addresses via `RestrictedGoogleProvider` (defined in `auth.py`).
+
+**Domain Restriction:**
+- Only users with `@carbonrobotics.com` email addresses can authenticate
+- Enforcement happens at the token verification layer (server-side validation)
+- The OAuth login UI hints to use Google Workspace domain (`hd=carbonrobotics.com`)
+- Rejected authentication attempts are logged for security monitoring
 
 **Google Cloud Console Setup:**
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
 2. Enable Google+ API (for user info)
 3. Create OAuth 2.0 credentials (Web application type)
 4. Add authorized redirect URI: `{FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL}/auth/callback`
-5. Optional: Restrict to your Google Workspace domain in OAuth consent screen settings
+5. Configure OAuth consent screen to restrict to carbonrobotics.com Google Workspace domain (recommended)
 
 **Local development:**
 - Set `DISABLE_AUTH=true` to bypass authentication entirely

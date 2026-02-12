@@ -6,11 +6,11 @@ from dotenv import load_dotenv
 import warnings
 
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.google import GoogleProvider
 from starlette.requests import Request
 from starlette.responses import Response
 
 from .arena_client import ArenaClient
+from .auth import RestrictedGoogleProvider
 
 load_dotenv()
 
@@ -30,11 +30,12 @@ if DISABLE_AUTH:
     )
     auth = None
 else:
-    # Configure Google OAuth 2.0 authentication
-    auth = GoogleProvider(
+    # Configure Google OAuth 2.0 authentication (restricted to @carbonrobotics.com)
+    auth = RestrictedGoogleProvider(
         client_id=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID", ""),
         client_secret=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET", ""),
         base_url=os.environ.get("FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL", ""),
+        extra_authorize_params={"hd": "carbonrobotics.com"},
     )
 
 mcp = FastMCP("arena-mcp-server", auth=auth)
