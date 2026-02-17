@@ -1,8 +1,10 @@
 """MCP server for Arena PLM API."""
 
+import functools
 import os
 
 from dotenv import load_dotenv
+import httpx
 import warnings
 
 from fastmcp import FastMCP
@@ -67,6 +69,19 @@ def get_client() -> ArenaClient:
     return client
 
 
+def _retry_on_auth_failure(fn):
+    """Retry once on 401 after re-authenticating with Arena."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                return fn(*args, **kwargs)
+            raise
+    return wrapper
+
+
 def _format_item_summary(item: dict) -> str:
     """Format a single item as a summary line."""
     line = f"- {item.get('number', 'N/A')}: {item.get('name', 'N/A')}"
@@ -82,6 +97,7 @@ def _format_item_summary(item: dict) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def search_items(
     name: str | None = None,
     number: str | None = None,
@@ -132,6 +148,7 @@ def search_items(
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item(guid: str) -> str:
     """Get full details for a specific item by its GUID.
 
@@ -168,6 +185,7 @@ def get_item(guid: str) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item_bom(guid: str) -> str:
     """Get the bill of materials (BOM) for an assembly item.
 
@@ -206,6 +224,7 @@ def get_item_bom(guid: str) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item_where_used(guid: str) -> str:
     """Find all assemblies where a given item is used as a component.
 
@@ -240,6 +259,7 @@ def get_item_where_used(guid: str) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item_revisions(guid: str) -> str:
     """Get all revisions of an item including working, effective, and superseded revisions.
 
@@ -274,6 +294,7 @@ def get_item_revisions(guid: str) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item_files(guid: str) -> str:
     """Get all files associated with an item (drawings, datasheets, CAD files, etc.).
 
@@ -307,6 +328,7 @@ def get_item_files(guid: str) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_item_sourcing(guid: str, limit: int = 20) -> str:
     """Get supplier/sourcing information for an item including approved manufacturers and vendors.
 
@@ -342,6 +364,7 @@ def get_item_sourcing(guid: str, limit: int = 20) -> str:
 
 
 @mcp.tool()
+@_retry_on_auth_failure
 def get_categories(path: str | None = None) -> str:
     """Get available item categories.
 

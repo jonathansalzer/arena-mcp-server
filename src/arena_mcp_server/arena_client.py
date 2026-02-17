@@ -61,6 +61,17 @@ class ArenaClient:
             self._session_id = None
             self._workspace_id = None
 
+    def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        """Make an authenticated request, clearing session on 401."""
+        self._ensure_authenticated()
+        kwargs.setdefault("headers", self._headers())
+        response = self._http.request(method, url, **kwargs)
+        if response.status_code == 401:
+            self._session_id = None
+            self._workspace_id = None
+        response.raise_for_status()
+        return response
+
     def _ensure_authenticated(self) -> None:
         """Raise if not authenticated."""
         if not self.is_authenticated:
@@ -101,8 +112,6 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if name:
             params["name"] = self._wrap_wildcard(name)
@@ -113,12 +122,7 @@ class ArenaClient:
         if category_guid:
             params["category.guid"] = category_guid
 
-        response = self._http.get(
-            f"{self.BASE_URL}/items",
-            params=params,
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items", params=params)
         return response.json()
 
     def get_item(
@@ -139,18 +143,11 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
         params: dict[str, Any] = {}
         if include_empty_attributes:
             params["includeEmptyAdditionalAttributes"] = "true"
 
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}",
-            params=params,
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}", params=params)
         return response.json()
 
     def get_item_bom(
@@ -171,18 +168,11 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
         params: dict[str, Any] = {}
         if include_additional_attributes:
             params["includeAdditionalAttributes"] = "true"
 
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}/bom",
-            params=params,
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}/bom", params=params)
         return response.json()
 
     def get_item_where_used(self, guid: str) -> dict[str, Any]:
@@ -198,13 +188,7 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}/whereused",
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}/whereused")
         return response.json()
 
     def get_item_revisions(self, guid: str) -> dict[str, Any]:
@@ -221,13 +205,7 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}/revisions",
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}/revisions")
         return response.json()
 
     def get_item_files(self, guid: str) -> dict[str, Any]:
@@ -243,13 +221,7 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}/files",
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}/files")
         return response.json()
 
     def get_item_sourcing(
@@ -272,16 +244,9 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
         params: dict[str, Any] = {"limit": limit, "offset": offset}
 
-        response = self._http.get(
-            f"{self.BASE_URL}/items/{guid}/sourcing",
-            params=params,
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/items/{guid}/sourcing", params=params)
         return response.json()
 
     def get_categories(self, path: str | None = None) -> dict[str, Any]:
@@ -297,18 +262,11 @@ class ArenaClient:
             RuntimeError: If not authenticated
             httpx.HTTPStatusError: If request fails
         """
-        self._ensure_authenticated()
-
         params: dict[str, Any] = {}
         if path:
             params["path"] = path
 
-        response = self._http.get(
-            f"{self.BASE_URL}/settings/items/categories",
-            params=params,
-            headers=self._headers(),
-        )
-        response.raise_for_status()
+        response = self._request("GET", f"{self.BASE_URL}/settings/items/categories", params=params)
         return response.json()
 
     def close(self) -> None:

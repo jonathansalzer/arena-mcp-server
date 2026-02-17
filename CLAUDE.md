@@ -56,7 +56,7 @@ The server uses **Google OAuth 2.0** for MCP client authentication, restricted t
 ## Gotchas
 
 - Arena API requires `*wildcards*` for partial matches - `arena_client.py` adds them automatically
-- No session refresh on expiry - will error, needs re-auth
+- Arena session auto-refreshes on 401 (re-login + single retry)
 - No rate limit retry logic
 - Arena auth is lazy (first tool call), not at startup
 - OAuth requires publicly accessible URL (use ngrok/cloudflare tunnel for local dev)
