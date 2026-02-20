@@ -12,4 +12,7 @@ COPY src/ src/
 # now setup the call to server, not installing the deps
 RUN pip install --no-deps .
 
+RUN useradd --create-home appuser
+USER appuser
+
 CMD ["arena-mcp-server"]
